@@ -1,0 +1,14 @@
+#To use adminder:
+http://localhost/adminer
+
+username: root
+pasword: 031221
+database: (leave empty)
+
+
+https://dcingoz.42.fr/wp-admin   -- to go into wordpress
+
+docker netmwork ls
+
+
+

@@ -1,0 +1,79 @@
+version: "3.9"
+#don't forget this indentation level shit wiht YAML syntax
+# keyword specifications: https://docs.docker.com/compose/compose-file
+# speficiations: https://github.com/compose-spec/compose-spec/blob/main/spec.md
+
+volumes:
+  mariadb:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${DB_DATA}
+  wordpress:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${WP_DATA}
+      
+
+services: #every container must be under services
+  mariadb: #first container
+    build: ./requirements/mariadb
+    container_name: mariadb
+    env_file: ./.env
+    volumes:
+      - mariadb:/var/lib/mysql
+    networks:
+      - inception
+    restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -uroot -p$${MYSQL_ROOT_PASSWORD} --silent"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  wordpress: #second container
+    build: ./requirements/wordpress
+    container_name: wordpress
+    env_file: ./.env
+    volumes:
+      - wordpress:/var/www/html
+    networks:
+      - inception
+    depends_on:
+      mariadb:
+        condition: service_healthy
+    restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "cgi-fcgi -bind -connect localhost:9000 || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  nginx:
+    build: ./requirements/nginx
+    container_name: nginx
+    env_file: ./.env
+    environment:
+      - DOMAIN_NAME=${DOMAIN_NAME}
+    volumes:
+      - wordpress:/var/www/html:ro   # shared WP files, read-only for NGINX
+    networks:
+      - inception
+    depends_on:
+      wordpress:
+        condition: service_healthy
+    ports:
+      - "443:443"             # project requires HTTPS entrypoint only
+    restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "nginx -t || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 10
+networks:
+  inception: {}
+
+
